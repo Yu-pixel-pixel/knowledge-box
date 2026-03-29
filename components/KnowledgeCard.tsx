@@ -1,11 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import type { KnowledgeItem } from '@/lib/types'
 
 interface KnowledgeCardProps {
   item: KnowledgeItem
   isNew?: boolean
+  onDelete?: (id: string) => void
 }
 
 const categoryColor: Record<string, string> = {
@@ -22,13 +24,32 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-export default function KnowledgeCard({ item, isNew = false }: KnowledgeCardProps) {
+export default function KnowledgeCard({ item, isNew = false, onDelete }: KnowledgeCardProps) {
+  const [isDeleting, setIsDeleting] = useState(false)
   const colorClass = categoryColor[item.category ?? 'その他'] ?? categoryColor['その他']
+
+  const handleDelete = async () => {
+    if (!confirm('このカードを削除しますか？')) return
+    setIsDeleting(true)
+    try {
+      await fetch(`/api/knowledge/${item.id}`, { method: 'DELETE' })
+      onDelete?.(item.id)
+    } catch {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleShare = () => {
+    const text = encodeURIComponent(
+      `「${item.question}」\n\n${item.summary ?? ''}\n\n${(item.tags ?? []).map((t) => `#${t}`).join(' ')}\n\n#Stockle`
+    )
+    window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank')
+  }
 
   return (
     <motion.div
       initial={isNew ? { opacity: 0, y: -16 } : false}
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: isDeleting ? 0 : 1, y: 0, scale: isDeleting ? 0.95 : 1 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
       className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5"
     >
@@ -58,8 +79,27 @@ export default function KnowledgeCard({ item, isNew = false }: KnowledgeCardProp
         </div>
       )}
 
-      {/* 日時 */}
-      <p className="text-xs text-gray-400">{formatDate(item.created_at)}</p>
+      {/* フッター */}
+      <div className="flex items-center justify-between mt-1">
+        <p className="text-xs text-gray-400">{formatDate(item.created_at)}</p>
+        <div className="flex items-center gap-2">
+          {/* シェアボタン */}
+          <button
+            onClick={handleShare}
+            className="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2 py-1 rounded-lg hover:bg-gray-50"
+          >
+            シェア
+          </button>
+          {/* 削除ボタン */}
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="text-xs text-gray-300 hover:text-red-400 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
+          >
+            削除
+          </button>
+        </div>
+      </div>
     </motion.div>
   )
 }

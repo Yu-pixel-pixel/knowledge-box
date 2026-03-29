@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import KnowledgeInput from '@/components/KnowledgeInput'
 import KnowledgeCard from '@/components/KnowledgeCard'
 import AnalysisModal from '@/components/AnalysisModal'
+import SaveResultModal from '@/components/SaveResultModal'
+import CuriosityMap from '@/components/CuriosityMap'
 import AuthButton from '@/components/AuthButton'
 import Counter from '@/components/Counter'
 import type { KnowledgeItem, AnalysisResult } from '@/lib/types'
@@ -25,9 +27,9 @@ export default function HomeClient({
   const [items, setItems] = useState<KnowledgeItem[]>(initialItems)
   const [total, setTotal] = useState(initialTotal)
   const [todayCount, setTodayCount] = useState(initialTodayCount)
-  const [newItemId, setNewItemId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [savedItem, setSavedItem] = useState<KnowledgeItem | null>(null)
   const [analysis, setAnalysis] = useState<{ result: AnalysisResult; count: number } | null>(null)
 
   const supabase = createClient()
@@ -63,9 +65,9 @@ export default function HomeClient({
 
       const newItem = data.item as KnowledgeItem
       setItems((prev) => [newItem, ...prev])
-      setNewItemId(newItem.id)
       setTotal(data.total)
       setTodayCount((prev) => prev + 1)
+      setSavedItem(newItem)
 
       if (data.analysis) {
         setAnalysis({ result: data.analysis, count: data.total })
@@ -76,6 +78,11 @@ export default function HomeClient({
       setIsLoading(false)
     }
   }
+
+  const handleDelete = useCallback((id: string) => {
+    setItems((prev) => prev.filter((item) => item.id !== id))
+    setTotal((prev) => prev - 1)
+  }, [])
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
@@ -112,6 +119,11 @@ export default function HomeClient({
           )}
         </section>
 
+        {/* 好奇心マップ（3件以上で表示） */}
+        {isLoggedIn && items.length >= 3 && (
+          <CuriosityMap items={items} />
+        )}
+
         {/* カード一覧 */}
         {items.length > 0 ? (
           <section className="space-y-3">
@@ -119,7 +131,7 @@ export default function HomeClient({
               <KnowledgeCard
                 key={item.id}
                 item={item}
-                isNew={item.id === newItemId}
+                onDelete={handleDelete}
               />
             ))}
           </section>
@@ -131,8 +143,16 @@ export default function HomeClient({
         ) : null}
       </main>
 
+      {/* 保存直後の強調モーダル */}
+      {savedItem && (
+        <SaveResultModal
+          item={savedItem}
+          onClose={() => setSavedItem(null)}
+        />
+      )}
+
       {/* ミニ分析モーダル */}
-      {analysis && (
+      {analysis && !savedItem && (
         <AnalysisModal
           analysis={analysis.result}
           triggerCount={analysis.count}
