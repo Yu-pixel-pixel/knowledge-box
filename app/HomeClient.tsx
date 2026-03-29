@@ -83,7 +83,7 @@ export default function HomeClient({
       <header className="sticky top-0 z-10 bg-[#FAFAFA]/80 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-gray-800">知識貯金箱</h1>
+            <h1 className="text-lg font-bold text-gray-800">Stockle</h1>
             {isLoggedIn && (
               <Counter todayCount={todayCount} total={total} />
             )}

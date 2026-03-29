@@ -9,8 +9,14 @@ const notoSansJP = Noto_Sans_JP({
 })
 
 export const metadata: Metadata = {
-  title: '知識貯金箱',
-  description: '気になったことを貯めて、あなたの知的傾向を発見しよう',
+  title: 'Stockle',
+  description: 'Stock your curiosity. Discover your mind.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Stockle',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
