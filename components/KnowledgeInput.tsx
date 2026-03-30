@@ -9,6 +9,14 @@ interface KnowledgeInputProps {
   onLoginRequest: () => void
 }
 
+const EXAMPLES = [
+  'なぜ夢って覚えてないんだろう',
+  'お金ってそもそも何でできてるの？',
+  'なぜ人は音楽で感動するんだろう',
+  'AIって本当に考えてるの？',
+  'なぜ空は青いの？',
+]
+
 export default function KnowledgeInput({ onSubmit, isLoading, isLoggedIn, onLoginRequest }: KnowledgeInputProps) {
   const [value, setValue] = useState('')
 
@@ -25,6 +33,8 @@ export default function KnowledgeInput({ onSubmit, isLoading, isLoggedIn, onLogi
     setValue('')
   }
 
+  const randomExample = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)]
+
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="relative">
@@ -37,10 +47,10 @@ export default function KnowledgeInput({ onSubmit, isLoading, isLoggedIn, onLogi
               handleSubmit(e)
             }
           }}
-          placeholder="今日、気になったことは？"
+          placeholder={`例：${randomExample}`}
           rows={3}
           disabled={isLoading}
-          className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-5 py-4 text-gray-800 placeholder-gray-400 shadow-sm focus:border-[#4ECDC4] focus:outline-none focus:ring-2 focus:ring-[#4ECDC4]/20 disabled:opacity-60 transition-all text-base"
+          className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-5 py-4 text-gray-800 placeholder-gray-300 shadow-sm focus:border-[#4ECDC4] focus:outline-none focus:ring-2 focus:ring-[#4ECDC4]/20 disabled:opacity-60 transition-all text-base"
         />
         <button
           type="submit"
@@ -50,10 +60,10 @@ export default function KnowledgeInput({ onSubmit, isLoading, isLoggedIn, onLogi
           {isLoading ? (
             <>
               <span className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              要約生成中...
+              ちょっと待って...
             </>
           ) : (
-            '保存する'
+            '記録する'
           )}
         </button>
       </div>

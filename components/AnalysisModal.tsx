@@ -13,7 +13,7 @@ export default function AnalysisModal({ analysis, triggerCount, onClose }: Analy
   const sizes = ['text-2xl', 'text-xl', 'text-lg', 'text-base', 'text-sm']
 
   const shareText = encodeURIComponent(
-    `${analysis.tendency}\n\n${analysis.message}\n\n#知識貯金箱 #${triggerCount}件達成`
+    `${analysis.tendency}\n\n${analysis.message}\n\n#Stockle #${triggerCount}個のギモン`
   )
 
   return (
@@ -36,7 +36,7 @@ export default function AnalysisModal({ analysis, triggerCount, onClose }: Analy
           {/* バッジ */}
           <div className="text-center mb-5">
             <div className="inline-flex items-center gap-1.5 bg-[#4ECDC4]/10 text-[#2ba89e] text-sm font-medium px-3 py-1.5 rounded-full mb-3">
-              {triggerCount}件達成！
+              {triggerCount}個のギモンが集まった！
             </div>
             <h2 className="text-xl font-bold text-gray-800">{analysis.tendency}</h2>
           </div>

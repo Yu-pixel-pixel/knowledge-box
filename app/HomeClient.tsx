@@ -10,6 +10,7 @@ import CuriosityMap from '@/components/CuriosityMap'
 import AuthButton from '@/components/AuthButton'
 import Counter from '@/components/Counter'
 import LandingPage from '@/components/LandingPage'
+import UpgradeModal from '@/components/UpgradeModal'
 import type { KnowledgeItem, AnalysisResult } from '@/lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -42,6 +43,7 @@ export default function HomeClient({
   const [curiosityType, setCuriosityType] = useState<string | undefined>(initialCuriosityType)
   const [latestAnalysis, setLatestAnalysis] = useState<AnalysisResult | null | undefined>(initialLatestAnalysis)
   const [activeTab, setActiveTab] = useState<Tab>('memo')
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   const supabase = createClient()
 
@@ -67,7 +69,7 @@ export default function HomeClient({
 
       if (!res.ok) {
         if (data.error === 'monthly_limit_reached') {
-          setError('今月の保存上限（30件）に達しました。来月また使えます！')
+          setShowUpgrade(true)
         } else {
           setError('うまくいかなかったみたい。もう一度試してみてください。')
         }
@@ -209,6 +211,11 @@ export default function HomeClient({
           triggerCount={analysis.count}
           onClose={() => setAnalysis(null)}
         />
+      )}
+
+      {/* アップグレードモーダル */}
+      {showUpgrade && (
+        <UpgradeModal onClose={() => setShowUpgrade(false)} />
       )}
     </div>
   )

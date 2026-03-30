@@ -303,7 +303,7 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
 
   if (items.length === 0) return (
     <div className="flex-1 flex items-center justify-center bg-[#0a0a14]">
-      <p className="text-white/30 text-sm">ギモンを記録するとUniverseが広がります</p>
+      <p className="text-white/30 text-sm">ギモンを記録すると、あなたの宇宙が広がります</p>
     </div>
   )
 
@@ -323,7 +323,7 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
           <p className="text-xs text-white/25 tracking-widest uppercase">Universe</p>
         </div>
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none">
-          <p className="text-white/20 text-xs">星をタップするとギモンを確認できます</p>
+          <p className="text-white/20 text-xs">星をタップすると、そのギモンが見えます</p>
         </div>
       </div>
 
@@ -331,7 +331,7 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
 
         {/* レーダーチャート */}
         <section>
-          <p className="text-white/40 text-xs font-medium mb-3 tracking-wide uppercase">カテゴリ分布</p>
+          <p className="text-white/40 text-xs font-medium mb-3 tracking-wide uppercase">ギモンの内訳</p>
           <RadarChart items={items} />
 
           {/* % 内訳バー */}
@@ -348,7 +348,7 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
                     style={{ backgroundColor: categoryColors[cat] ?? '#4ECDC4' }}
                   />
                 </div>
-                <span className="text-white/30 text-xs w-12 text-right shrink-0">{count}件 {pct}%</span>
+                <span className="text-white/30 text-xs w-12 text-right shrink-0">{count}個 {pct}%</span>
               </div>
             ))}
           </div>
@@ -356,18 +356,18 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
 
         {/* 好奇心タイプ */}
         <section className="bg-white/5 rounded-2xl p-4">
-          <p className="text-white/30 text-xs mb-2 uppercase tracking-wide">あなたの好奇心タイプ</p>
+          <p className="text-white/30 text-xs mb-2 uppercase tracking-wide">あなたってこういう人</p>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">{categoryChar[dominant] ?? '✨'}</span>
             <p className="text-white font-semibold text-base">{displayType}</p>
           </div>
-          <p className="text-white/30 text-xs">{total}個の星を記録中</p>
+          <p className="text-white/30 text-xs">これまでに{total}個のギモンを記録してる</p>
         </section>
 
         {/* AIメッセージ */}
         {latestAnalysis ? (
           <section className="bg-[#4ECDC4]/10 border border-[#4ECDC4]/20 rounded-2xl p-4">
-            <p className="text-[#4ECDC4]/60 text-xs mb-2 uppercase tracking-wide">AIからのメッセージ</p>
+            <p className="text-[#4ECDC4]/60 text-xs mb-2 uppercase tracking-wide">Stockleより</p>
             <p className="text-white/80 text-sm leading-relaxed">{latestAnalysis.message}</p>
             {latestAnalysis.keywords.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-3">
@@ -381,7 +381,7 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
           </section>
         ) : items.length < 5 ? (
           <section className="bg-white/5 rounded-2xl p-4 text-center">
-            <p className="text-white/30 text-sm">あと{5 - items.length}件記録するとAIからメッセージが届きます</p>
+            <p className="text-white/30 text-sm">あと{5 - items.length}個記録すると、あなたの傾向が見えてきます</p>
           </section>
         ) : null}
 
