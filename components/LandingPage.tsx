@@ -10,7 +10,7 @@ const steps = [
   {
     number: '01',
     icon: '💭',
-    title: 'ふと気になったことを入力',
+    title: '気になったことを入力',
     desc: '「なぜ空は青いの？」「ブラックホールって何？」\nどんな小さなギモンでも OK',
   },
   {
@@ -148,13 +148,13 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 leading-tight mb-6">
-            ふと気になるギモンが、
+            気になるギモンが、
             <br />
             <span className="text-[#4ECDC4]">世界をもっとくっきりさせる</span>
           </h1>
 
           <p className="text-gray-500 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-            日常のふとした疑問を記録するだけ。
+            日常の疑問を記録するだけ。
             <br />
             AIが整理して、あなただけの知的宇宙を作ります。
           </p>
