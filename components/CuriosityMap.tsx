@@ -5,6 +5,7 @@ import type { KnowledgeItem } from '@/lib/types'
 
 interface CuriosityMapProps {
   items: KnowledgeItem[]
+  curiosityType?: string
 }
 
 const categoryColors: Record<string, string> = {
@@ -34,7 +35,7 @@ interface Star {
   twinkleOffset: number
 }
 
-export default function CuriosityMap({ items }: CuriosityMapProps) {
+export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
 
@@ -145,47 +146,50 @@ export default function CuriosityMap({ items }: CuriosityMapProps) {
 
   if (items.length === 0) return null
 
+  const displayType = curiosityType ?? `${dominant}型の好奇心`
+
   return (
-    <div className="rounded-3xl overflow-hidden border border-gray-800 shadow-lg relative">
-      <canvas
-        ref={canvasRef}
-        className="w-full"
-        style={{ height: 220, display: 'block' }}
-      />
+    <div className="flex flex-col h-full min-h-0">
+      {/* 宇宙キャンバス */}
+      <div className="relative flex-1 min-h-0">
+        <canvas
+          ref={canvasRef}
+          className="w-full h-full"
+          style={{ display: 'block', minHeight: 300 }}
+        />
 
-      {/* オーバーレイ情報 */}
-      <div className="absolute inset-0 flex flex-col justify-between p-4 pointer-events-none">
         {/* 上部ラベル */}
-        <p className="text-xs text-white/40 font-medium tracking-widest uppercase">
-          Your Universe
-        </p>
+        <div className="absolute top-4 left-4 pointer-events-none">
+          <p className="text-xs text-white/40 font-medium tracking-widest uppercase">
+            Universe
+          </p>
+        </div>
 
-        {/* 下部：ドミナントキャラ＋凡例 */}
-        <div className="flex items-end justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{categoryChar[dominant] ?? '✨'}</span>
-            <div>
-              <p className="text-white text-sm font-semibold leading-none">
-                {dominant}型の好奇心
-              </p>
-              <p className="text-white/40 text-xs mt-0.5">{total}個の知識を記録中</p>
-            </div>
-          </div>
+        {/* カテゴリ凡例（右上） */}
+        <div className="absolute top-4 right-4 flex flex-col gap-1 items-end pointer-events-none">
+          {Object.entries(categoryColors).map(([cat, color]) => {
+            const count = items.filter((i) => (i.category ?? 'その他') === cat).length
+            if (count === 0) return null
+            return (
+              <div key={cat} className="flex items-center gap-1">
+                <span className="text-white/50 text-xs">{cat} {count}</span>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+              </div>
+            )
+          })}
+        </div>
+      </div>
 
-          {/* カテゴリ凡例 */}
-          <div className="flex flex-col gap-1 items-end">
-            {Object.entries(categoryColors).map(([cat, color]) => {
-              const count = items.filter((i) => (i.category ?? 'その他') === cat).length
-              if (count === 0) return null
-              return (
-                <div key={cat} className="flex items-center gap-1">
-                  <span className="text-white/50 text-xs">{cat} {count}</span>
-                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-                </div>
-              )
-            })}
+      {/* 好奇心タイプカード */}
+      <div className="bg-[#0d0d1a] border-t border-white/10 px-6 py-5">
+        <div className="flex items-center gap-3 mb-1">
+          <span className="text-3xl">{categoryChar[dominant] ?? '✨'}</span>
+          <div>
+            <p className="text-white/40 text-xs mb-0.5">あなたの好奇心タイプ</p>
+            <p className="text-white font-semibold text-base leading-snug">{displayType}</p>
           </div>
         </div>
+        <p className="text-white/30 text-xs mt-3 text-right">{total}個の星を記録中</p>
       </div>
     </div>
   )

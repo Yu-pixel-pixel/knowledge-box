@@ -5,17 +5,9 @@ import type { Category, AnalysisResult } from '@/lib/types'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-// =====================================================
-// POST /api/knowledge
-// body: { question: string }
-// 1. Claude で要約・タグ生成
-// 2. Supabase に保存
-// 3. 5件到達時はミニ分析も生成して返す
-// =====================================================
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
 
-  // 認証チェック
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -26,7 +18,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Question is required' }, { status: 400 })
   }
 
-  // 月間保存数チェック（無料ユーザー: 30件上限）
+  // 月間保存数チェック
   const { data: userData } = await supabase
     .from('users')
     .select('is_premium')
@@ -37,13 +29,11 @@ export async function POST(request: NextRequest) {
     const startOfMonth = new Date()
     startOfMonth.setDate(1)
     startOfMonth.setHours(0, 0, 0, 0)
-
     const { count } = await supabase
       .from('knowledge_items')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .gte('created_at', startOfMonth.toISOString())
-
     if ((count ?? 0) >= 30) {
       return NextResponse.json({ error: 'monthly_limit_reached' }, { status: 429 })
     }
@@ -58,10 +48,9 @@ export async function POST(request: NextRequest) {
     const summaryRes = await anthropic.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: 512,
-      messages: [
-        {
-          role: 'user',
-          content: `以下の質問・トピックについて、必ずJSON形式のみで回答してください。余分な文章は一切不要です。
+      messages: [{
+        role: 'user',
+        content: `以下の質問・トピックについて、必ずJSON形式のみで回答してください。
 
 質問: ${question}
 
@@ -71,10 +60,8 @@ export async function POST(request: NextRequest) {
   "tags": ["タグ1", "タグ2", "タグ3"],
   "category": "科学|歴史|技術|社会|芸術|その他のいずれか1つ"
 }`,
-        },
-      ],
+      }],
     })
-
     const raw = summaryRes.content[0].type === 'text' ? summaryRes.content[0].text : ''
     const jsonMatch = raw.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
@@ -88,7 +75,7 @@ export async function POST(request: NextRequest) {
     summary = question.slice(0, 200)
   }
 
-  // ── Step 2: Supabase に保存 ──
+  // ── Step 2: 保存 ──
   const { data: newItem, error: insertError } = await supabase
     .from('knowledge_items')
     .insert({ user_id: user.id, question, summary, tags, category })
@@ -99,35 +86,56 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to save' }, { status: 500 })
   }
 
-  // ── Step 3: 合計件数を確認し、5の倍数なら分析 ──
-  const { count: totalCount } = await supabase
+  // ── Step 3: 全件取得して好奇心タイプを生成 ──
+  const { data: allItems, count: totalCount } = await supabase
     .from('knowledge_items')
-    .select('*', { count: 'exact', head: true })
+    .select('question, category', { count: 'exact' })
     .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
 
   const total = totalCount ?? 0
   let analysis: AnalysisResult | null = null
+  let curiosityType: string | null = null
 
+  // 3件以上でAI好奇心タイプを生成（3件ごとに更新）
+  if (total >= 3 && total % 3 === 0) {
+    try {
+      const typeRes = await anthropic.messages.create({
+        model: 'claude-haiku-4-5',
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: `以下はユーザーが気になって記録したギモン一覧です。
+このユーザーの好奇心の傾向を、身近で具体的な「〇〇タイプ」という形で一言で表してください。
+「技術型」のような抽象的な表現ではなく、その人の個性が伝わる表現にしてください。
+例: 「なぜ？を止められない実験者タイプ」「社会の仕組みを解体したがる観察者タイプ」「テクノロジーと人間の境界を探るタイプ」
+
+ギモン一覧:
+${allItems?.slice(0, 20).map((r) => `- [${r.category}] ${r.question}`).join('\n')}
+
+一言のみ回答してください（JSON不要、文章のみ）:`,
+        }],
+      })
+      const raw = typeRes.content[0].type === 'text' ? typeRes.content[0].text.trim() : null
+      if (raw) curiosityType = raw
+    } catch (e) {
+      console.error('Claude curiosity type error:', e)
+    }
+  }
+
+  // マイルストーン分析（5, 20, 50, 100件）
   const milestones = [5, 20, 50, 100]
-  if (milestones.includes(total)) {
-    const { data: recent } = await supabase
-      .from('knowledge_items')
-      .select('question, category')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(total)
-
+  if (milestones.includes(total) && allItems) {
     try {
       const analysisRes = await anthropic.messages.create({
         model: 'claude-haiku-4-5',
         max_tokens: 512,
-        messages: [
-          {
-            role: 'user',
-            content: `以下はユーザーが気になって調べたトピック一覧です。必ずJSON形式のみで分析してください。
+        messages: [{
+          role: 'user',
+          content: `以下はユーザーが気になって調べたトピック一覧です。必ずJSON形式のみで分析してください。
 
 トピック一覧:
-${recent?.map((r) => `- [${r.category}] ${r.question}`).join('\n')}
+${allItems.map((r) => `- [${r.category}] ${r.question}`).join('\n')}
 
 出力形式（このJSONのみ）:
 {
@@ -135,15 +143,12 @@ ${recent?.map((r) => `- [${r.category}] ${r.question}`).join('\n')}
   "tendency": "あなたの脳内を一言で表すと〇〇型です",
   "message": "ユーザーへの一言コメント（ポジティブに、100字以内）"
 }`,
-          },
-        ],
+        }],
       })
-
       const raw = analysisRes.content[0].type === 'text' ? analysisRes.content[0].text : ''
       const jsonMatch = raw.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         analysis = JSON.parse(jsonMatch[0])
-
         await supabase.from('analyses').insert({
           user_id: user.id,
           trigger_count: total,
@@ -155,13 +160,9 @@ ${recent?.map((r) => `- [${r.category}] ${r.question}`).join('\n')}
     }
   }
 
-  return NextResponse.json({ item: newItem, analysis, total })
+  return NextResponse.json({ item: newItem, analysis, total, curiosityType })
 }
 
-// =====================================================
-// GET /api/knowledge
-// ユーザーの knowledge_items 一覧を返す
-// =====================================================
 export async function GET() {
   const supabase = await createClient()
 
@@ -173,18 +174,32 @@ export async function GET() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const [{ data: items, count: total }, { count: todayCount }] = await Promise.all([
-    supabase
-      .from('knowledge_items')
-      .select('*', { count: 'exact' })
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('knowledge_items')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', today.toISOString()),
-  ])
+  const [{ data: items, count: total }, { count: todayCount }, { data: latestAnalysis }] =
+    await Promise.all([
+      supabase
+        .from('knowledge_items')
+        .select('*', { count: 'exact' })
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('knowledge_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', today.toISOString()),
+      supabase
+        .from('analyses')
+        .select('result')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1),
+    ])
 
-  return NextResponse.json({ items: items ?? [], total: total ?? 0, todayCount: todayCount ?? 0 })
+  const curiosityType = latestAnalysis?.[0]?.result?.tendency ?? null
+
+  return NextResponse.json({
+    items: items ?? [],
+    total: total ?? 0,
+    todayCount: todayCount ?? 0,
+    curiosityType,
+  })
 }
