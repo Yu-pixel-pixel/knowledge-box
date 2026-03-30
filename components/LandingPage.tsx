@@ -154,7 +154,7 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
           </h1>
 
           <p className="text-gray-500 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-            日常の疑問を記録するだけ。
+            日常のギモンを記録するだけ。
             <br />
             AIが整理して、あなただけの知的宇宙を作ります。
           </p>
@@ -222,7 +222,7 @@ export default function LandingPage({ onLogin }: LandingPageProps) {
             {
               icon: '🔬',
               title: 'AIが即座に分類・要約',
-              desc: '科学・技術・歴史・社会・芸術の5カテゴリに自動分類。長い疑問も200字に凝縮。',
+              desc: '科学・技術・歴史・社会・芸術の5カテゴリに自動分類。長いギモンも200字に凝縮。',
             },
             {
               icon: '🌌',
