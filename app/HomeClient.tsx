@@ -18,6 +18,7 @@ interface HomeClientProps {
   initialTotal: number
   initialTodayCount: number
   initialCuriosityType?: string
+  initialLatestAnalysis?: AnalysisResult | null
 }
 
 type Tab = 'memo' | 'universe'
@@ -28,6 +29,7 @@ export default function HomeClient({
   initialTotal,
   initialTodayCount,
   initialCuriosityType,
+  initialLatestAnalysis,
 }: HomeClientProps) {
   const [items, setItems] = useState<KnowledgeItem[]>(initialItems)
   const [total, setTotal] = useState(initialTotal)
@@ -37,6 +39,7 @@ export default function HomeClient({
   const [savedItem, setSavedItem] = useState<KnowledgeItem | null>(null)
   const [analysis, setAnalysis] = useState<{ result: AnalysisResult; count: number } | null>(null)
   const [curiosityType, setCuriosityType] = useState<string | undefined>(initialCuriosityType)
+  const [latestAnalysis, setLatestAnalysis] = useState<AnalysisResult | null | undefined>(initialLatestAnalysis)
   const [activeTab, setActiveTab] = useState<Tab>('memo')
 
   const supabase = createClient()
@@ -82,6 +85,7 @@ export default function HomeClient({
 
       if (data.analysis) {
         setAnalysis({ result: data.analysis, count: data.total })
+        setLatestAnalysis(data.analysis)
       }
     } catch {
       setError('うまくいかなかったみたい。ネットワークを確認してください。')
@@ -189,7 +193,7 @@ export default function HomeClient({
             transition={{ duration: 0.2 }}
             className="flex-1 flex flex-col"
           >
-            <CuriosityMap items={items} curiosityType={curiosityType} />
+            <CuriosityMap items={items} curiosityType={curiosityType} latestAnalysis={latestAnalysis} />
           </motion.div>
         )}
       </AnimatePresence>

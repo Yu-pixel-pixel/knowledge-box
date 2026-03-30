@@ -10,6 +10,7 @@ export default async function Home() {
   let initialTotal = 0
   let initialTodayCount = 0
   let initialCuriosityType: string | undefined
+  let initialLatestAnalysis = null
 
   if (user) {
     const today = new Date()
@@ -39,6 +40,7 @@ export default async function Home() {
     initialTotal = total ?? 0
     initialTodayCount = todayCount ?? 0
     initialCuriosityType = latestAnalysis?.[0]?.result?.tendency ?? undefined
+    initialLatestAnalysis = latestAnalysis?.[0]?.result ?? null
   }
 
   return (
@@ -48,6 +50,7 @@ export default async function Home() {
       initialTotal={initialTotal}
       initialTodayCount={initialTodayCount}
       initialCuriosityType={initialCuriosityType}
+      initialLatestAnalysis={initialLatestAnalysis}
     />
   )
 }

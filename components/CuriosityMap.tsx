@@ -2,12 +2,15 @@
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { KnowledgeItem } from '@/lib/types'
+import type { KnowledgeItem, AnalysisResult } from '@/lib/types'
 
 interface CuriosityMapProps {
   items: KnowledgeItem[]
   curiosityType?: string
+  latestAnalysis?: AnalysisResult | null
 }
+
+const CATEGORIES = ['技術', '科学', '歴史', '社会', '芸術'] as const
 
 const categoryColors: Record<string, string> = {
   技術: '#A78BFA',
@@ -43,14 +46,117 @@ interface PopupState {
   y: number
 }
 
-export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps) {
+// ── レーダーチャート（SVG） ──────────────────────────
+function RadarChart({ items }: { items: KnowledgeItem[] }) {
+  const size = 220
+  const cx = size / 2
+  const cy = size / 2
+  const r = 80
+  const n = CATEGORIES.length
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = {}
+    items.forEach((item) => {
+      const cat = item.category ?? 'その他'
+      c[cat] = (c[cat] ?? 0) + 1
+    })
+    return c
+  }, [items])
+
+  const max = Math.max(...CATEGORIES.map((c) => counts[c] ?? 0), 1)
+
+  const points = CATEGORIES.map((cat, i) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+    const val = (counts[cat] ?? 0) / max
+    return {
+      cat,
+      x: cx + r * val * Math.cos(angle),
+      y: cy + r * val * Math.sin(angle),
+      lx: cx + (r + 24) * Math.cos(angle),
+      ly: cy + (r + 24) * Math.sin(angle),
+      val,
+    }
+  })
+
+  const gridLevels = [0.25, 0.5, 0.75, 1]
+
+  return (
+    <svg width={size} height={size} className="mx-auto">
+      {/* グリッド */}
+      {gridLevels.map((level) => {
+        const gpts = CATEGORIES.map((_, i) => {
+          const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+          return `${cx + r * level * Math.cos(angle)},${cy + r * level * Math.sin(angle)}`
+        }).join(' ')
+        return (
+          <polygon
+            key={level}
+            points={gpts}
+            fill="none"
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth={1}
+          />
+        )
+      })}
+
+      {/* 軸線 */}
+      {CATEGORIES.map((_, i) => {
+        const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+        return (
+          <line
+            key={i}
+            x1={cx} y1={cy}
+            x2={cx + r * Math.cos(angle)}
+            y2={cy + r * Math.sin(angle)}
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth={1}
+          />
+        )
+      })}
+
+      {/* データポリゴン */}
+      <polygon
+        points={points.map((p) => `${p.x},${p.y}`).join(' ')}
+        fill="rgba(78,205,196,0.15)"
+        stroke="#4ECDC4"
+        strokeWidth={1.5}
+      />
+
+      {/* 頂点ドット */}
+      {points.map((p) => (
+        <circle
+          key={p.cat}
+          cx={p.x} cy={p.y} r={3}
+          fill={categoryColors[p.cat] ?? '#4ECDC4'}
+        />
+      ))}
+
+      {/* ラベル */}
+      {points.map((p) => (
+        <text
+          key={p.cat}
+          x={p.lx} y={p.ly}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={10}
+          fill="rgba(255,255,255,0.5)"
+        >
+          {categoryChar[p.cat]}{p.cat}
+        </text>
+      ))}
+    </svg>
+  )
+}
+
+// ── メインコンポーネント ──────────────────────────────
+export default function CuriosityMap({ items, curiosityType, latestAnalysis }: CuriosityMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const animRef = useRef<number>(0)
   const starsRef = useRef<StarData[]>([])
   const [popup, setPopup] = useState<PopupState | null>(null)
 
-  const { stars, dominant, total } = useMemo(() => {
-    if (items.length === 0) return { stars: [], dominant: 'その他', total: 0 }
+  const { stars, dominant, total, categoryStats } = useMemo(() => {
+    if (items.length === 0) return { stars: [], dominant: 'その他', total: 0, categoryStats: [] }
 
     const counts: Record<string, number> = {}
     items.forEach((item) => {
@@ -58,17 +164,24 @@ export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps
       counts[cat] = (counts[cat] ?? 0) + 1
     })
 
-    const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'その他'
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
+    const dominant = sorted[0]?.[0] ?? 'その他'
+    const total = items.length
+
+    const categoryStats = sorted.map(([cat, count]) => ({
+      cat,
+      count,
+      pct: Math.round((count / total) * 100),
+    }))
 
     const stars: StarData[] = items.map((item, i) => {
       const seed = i * 2654435761
-      const x = 0.08 + ((seed % 1000) / 1000) * 0.84
-      const y = 0.08 + (((seed >> 8) % 1000) / 1000) * 0.84
+      const x = 0.06 + ((seed % 1000) / 1000) * 0.88
+      const y = 0.06 + (((seed >> 8) % 1000) / 1000) * 0.88
       const cat = item.category ?? 'その他'
       return {
-        x,
-        y,
-        r: 3 + (seed % 3),
+        x, y,
+        r: 2.5 + (seed % 3),
         color: categoryColors[cat] ?? '#4ECDC4',
         alpha: 0.6 + ((seed % 40) / 100),
         twinkleOffset: (seed % 628) / 100,
@@ -76,13 +189,10 @@ export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps
       }
     })
 
-    return { stars, dominant, total: items.length }
+    return { stars, dominant, total, categoryStats }
   }, [items])
 
-  // starsRefを最新に保つ
-  useEffect(() => {
-    starsRef.current = stars
-  }, [stars])
+  useEffect(() => { starsRef.current = stars }, [stars])
 
   // Canvas描画
   useEffect(() => {
@@ -91,22 +201,15 @@ export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const resize = () => {
-      const dpr = window.devicePixelRatio || 1
-      const W = canvas.offsetWidth
-      const H = canvas.offsetHeight
-      canvas.width = W * dpr
-      canvas.height = H * dpr
-      ctx.scale(dpr, dpr)
-    }
-    resize()
+    const dpr = window.devicePixelRatio || 1
+    canvas.width = canvas.offsetWidth * dpr
+    canvas.height = canvas.offsetHeight * dpr
+    ctx.scale(dpr, dpr)
 
     let frame = 0
-
     const draw = () => {
       const W = canvas.offsetWidth
       const H = canvas.offsetHeight
-
       ctx.clearRect(0, 0, W, H)
 
       // 背景
@@ -117,83 +220,60 @@ export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps
       ctx.fillRect(0, 0, W, H)
 
       // 星雲
-      const nebula = ctx.createRadialGradient(W * 0.6, H * 0.35, 0, W * 0.6, H * 0.35, W * 0.45)
+      const nebula = ctx.createRadialGradient(W * 0.6, H * 0.4, 0, W * 0.6, H * 0.4, W * 0.4)
       nebula.addColorStop(0, 'rgba(78,205,196,0.07)')
       nebula.addColorStop(1, 'transparent')
       ctx.fillStyle = nebula
       ctx.fillRect(0, 0, W, H)
 
-      const nebula2 = ctx.createRadialGradient(W * 0.2, H * 0.7, 0, W * 0.2, H * 0.7, W * 0.3)
-      nebula2.addColorStop(0, 'rgba(167,139,250,0.05)')
-      nebula2.addColorStop(1, 'transparent')
-      ctx.fillStyle = nebula2
-      ctx.fillRect(0, 0, W, H)
-
-      // 背景の小さな固定星
-      for (let i = 0; i < 80; i++) {
+      // 背景の固定星
+      for (let i = 0; i < 60; i++) {
         const s = i * 1234567
         const bx = ((s % 1000) / 1000) * W
         const by = (((s >> 4) % 1000) / 1000) * H
-        const br = 0.3 + (s % 10) / 15
-        const tw = 0.2 + 0.25 * Math.sin(frame * 0.015 + i)
+        const tw = 0.15 + 0.2 * Math.sin(frame * 0.015 + i)
         ctx.beginPath()
-        ctx.arc(bx, by, br, 0, Math.PI * 2)
+        ctx.arc(bx, by, 0.4 + (s % 8) / 12, 0, Math.PI * 2)
         ctx.fillStyle = `rgba(255,255,255,${tw})`
         ctx.fill()
       }
 
-      const currentStars = starsRef.current
-
-      // 同カテゴリの星を線で繋ぐ（星座）
+      // 同カテゴリの星を線で繋ぐ
       const byCat: Record<string, StarData[]> = {}
-      currentStars.forEach((star) => {
+      starsRef.current.forEach((star) => {
         const cat = star.item.category ?? 'その他'
         if (!byCat[cat]) byCat[cat] = []
         byCat[cat].push(star)
       })
-
-      Object.entries(byCat).forEach(([, catStars]) => {
-        if (catStars.length < 2) return
+      Object.values(byCat).forEach((catStars) => {
         for (let i = 0; i < catStars.length - 1; i++) {
-          const a = catStars[i]
-          const b = catStars[i + 1]
-          const ax = a.x * W
-          const ay = a.y * H
-          const bx2 = b.x * W
-          const by2 = b.y * H
-          const dist = Math.hypot(bx2 - ax, by2 - ay)
-          // 近い星だけ繋ぐ
-          if (dist < W * 0.35) {
+          const a = catStars[i], b = catStars[i + 1]
+          const dist = Math.hypot((b.x - a.x) * W, (b.y - a.y) * H)
+          if (dist < W * 0.32) {
             ctx.beginPath()
-            ctx.moveTo(ax, ay)
-            ctx.lineTo(bx2, by2)
-            ctx.strokeStyle = a.color + '30'
-            ctx.lineWidth = 0.6
+            ctx.moveTo(a.x * W, a.y * H)
+            ctx.lineTo(b.x * W, b.y * H)
+            ctx.strokeStyle = a.color + '28'
+            ctx.lineWidth = 0.5
             ctx.stroke()
           }
         }
       })
 
       // 知識の星
-      currentStars.forEach((star) => {
-        const sx = star.x * W
-        const sy = star.y * H
-        const twinkle = star.alpha + 0.15 * Math.sin(frame * 0.025 + star.twinkleOffset)
-
-        // グロー
+      starsRef.current.forEach((star) => {
+        const sx = star.x * W, sy = star.y * H
+        const tw = star.alpha + 0.15 * Math.sin(frame * 0.025 + star.twinkleOffset)
         const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, star.r * 5)
-        glow.addColorStop(0, star.color + 'aa')
+        glow.addColorStop(0, star.color + '99')
         glow.addColorStop(1, 'transparent')
         ctx.fillStyle = glow
         ctx.beginPath()
         ctx.arc(sx, sy, star.r * 5, 0, Math.PI * 2)
         ctx.fill()
-
-        // 星本体
         ctx.beginPath()
         ctx.arc(sx, sy, star.r, 0, Math.PI * 2)
-        const alphaHex = Math.round(Math.min(twinkle, 1) * 255).toString(16).padStart(2, '0')
-        ctx.fillStyle = star.color + alphaHex
+        ctx.fillStyle = star.color + Math.round(Math.min(tw, 1) * 255).toString(16).padStart(2, '0')
         ctx.fill()
       })
 
@@ -205,7 +285,6 @@ export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps
     return () => cancelAnimationFrame(animRef.current)
   }, [stars])
 
-  // タップ・クリックで星を検出
   const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -215,77 +294,97 @@ export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps
     const W = canvas.offsetWidth
     const H = canvas.offsetHeight
 
-    const hit = starsRef.current.find((star) => {
-      const sx = star.x * W
-      const sy = star.y * H
-      return Math.hypot(x - sx, y - sy) < star.r * 6 + 8
-    })
-
-    if (hit) {
-      setPopup({ item: hit.item, x: e.clientX, y: e.clientY })
-    } else {
-      setPopup(null)
-    }
+    const hit = starsRef.current.find((star) =>
+      Math.hypot(x - star.x * W, y - star.y * H) < star.r * 6 + 10
+    )
+    if (hit) setPopup({ item: hit.item, x: e.clientX, y: e.clientY })
+    else setPopup(null)
   }, [])
 
-  if (items.length === 0) return null
+  if (items.length === 0) return (
+    <div className="flex-1 flex items-center justify-center bg-[#0a0a14]">
+      <p className="text-white/30 text-sm">ギモンを記録するとUniverseが広がります</p>
+    </div>
+  )
 
   const displayType = curiosityType ?? `${dominant}型の好奇心`
-  const dominantItems = items.filter((i) => (i.category ?? 'その他') === dominant)
-  const topTags = [...new Set(dominantItems.flatMap((i) => i.tags ?? []))].slice(0, 3)
-  const reason = topTags.length > 0
-    ? `なぜなら、「${topTags.join('」「')}」への関心が特に多いからです`
-    : `なぜなら、${dominant}分野の記録が最も多いからです`
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* 宇宙キャンバス */}
-      <div className="relative flex-1 min-h-0">
+    <div className="flex-1 overflow-y-auto bg-[#0a0a14]">
+      {/* 星空マップ */}
+      <div className="relative">
         <canvas
           ref={canvasRef}
           onClick={handleCanvasClick}
-          className="w-full h-full cursor-pointer"
-          style={{ display: 'block', minHeight: 340 }}
+          className="w-full cursor-pointer"
+          style={{ height: 200, display: 'block' }}
         />
-
-        {/* 上部ラベル */}
-        <div className="absolute top-4 left-4 pointer-events-none">
-          <p className="text-xs text-white/30 font-medium tracking-widest uppercase">Universe</p>
+        <div className="absolute top-3 left-4 pointer-events-none">
+          <p className="text-xs text-white/25 tracking-widest uppercase">Universe</p>
         </div>
-
-        {/* カテゴリ凡例 */}
-        <div className="absolute top-4 right-4 flex flex-col gap-1 items-end pointer-events-none">
-          {Object.entries(categoryColors).map(([cat, color]) => {
-            const count = items.filter((i) => (i.category ?? 'その他') === cat).length
-            if (count === 0) return null
-            return (
-              <div key={cat} className="flex items-center gap-1.5">
-                <span className="text-white/40 text-xs">{cat} {count}</span>
-                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
-              </div>
-            )
-          })}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none">
+          <p className="text-white/20 text-xs">星をタップするとギモンを確認できます</p>
         </div>
-
-        {/* タップヒント */}
-        {total > 0 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 pointer-events-none">
-            <p className="text-white/20 text-xs">星をタップしてみて</p>
-          </div>
-        )}
       </div>
 
-      {/* 好奇心タイプカード */}
-      <div className="bg-[#0d0d1a] border-t border-white/10 px-5 py-4">
-        <div className="flex items-start gap-3">
-          <span className="text-2xl mt-0.5">{categoryChar[dominant] ?? '✨'}</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-white/40 text-xs mb-1">あなたの好奇心タイプ</p>
-            <p className="text-white font-semibold text-base leading-snug">{displayType}</p>
-            <p className="text-white/30 text-xs mt-1.5 leading-relaxed">{reason}</p>
+      <div className="px-5 py-6 space-y-6">
+
+        {/* レーダーチャート */}
+        <section>
+          <p className="text-white/40 text-xs font-medium mb-3 tracking-wide uppercase">カテゴリ分布</p>
+          <RadarChart items={items} />
+
+          {/* % 内訳バー */}
+          <div className="space-y-2 mt-4">
+            {categoryStats.map(({ cat, count, pct }) => (
+              <div key={cat} className="flex items-center gap-3">
+                <span className="text-white/50 text-xs w-16 shrink-0">{categoryChar[cat]}{cat}</span>
+                <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                    className="h-full rounded-full"
+                    style={{ backgroundColor: categoryColors[cat] ?? '#4ECDC4' }}
+                  />
+                </div>
+                <span className="text-white/30 text-xs w-12 text-right shrink-0">{count}件 {pct}%</span>
+              </div>
+            ))}
           </div>
-        </div>
-        <p className="text-white/20 text-xs mt-3 text-right">{total}個の星を記録中</p>
+        </section>
+
+        {/* 好奇心タイプ */}
+        <section className="bg-white/5 rounded-2xl p-4">
+          <p className="text-white/30 text-xs mb-2 uppercase tracking-wide">あなたの好奇心タイプ</p>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-2xl">{categoryChar[dominant] ?? '✨'}</span>
+            <p className="text-white font-semibold text-base">{displayType}</p>
+          </div>
+          <p className="text-white/30 text-xs">{total}個の星を記録中</p>
+        </section>
+
+        {/* AIメッセージ */}
+        {latestAnalysis ? (
+          <section className="bg-[#4ECDC4]/10 border border-[#4ECDC4]/20 rounded-2xl p-4">
+            <p className="text-[#4ECDC4]/60 text-xs mb-2 uppercase tracking-wide">AIからのメッセージ</p>
+            <p className="text-white/80 text-sm leading-relaxed">{latestAnalysis.message}</p>
+            {latestAnalysis.keywords.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {latestAnalysis.keywords.map((kw) => (
+                  <span key={kw} className="text-xs bg-[#4ECDC4]/10 text-[#4ECDC4]/70 px-2 py-0.5 rounded-full">
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : items.length < 5 ? (
+          <section className="bg-white/5 rounded-2xl p-4 text-center">
+            <p className="text-white/30 text-sm">あと{5 - items.length}件記録するとAIからメッセージが届きます</p>
+          </section>
+        ) : null}
+
       </div>
 
       {/* 星タップポップアップ */}
@@ -293,9 +392,7 @@ export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps
         {popup && (
           <>
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 z-40"
               onClick={() => setPopup(null)}
             />
@@ -307,50 +404,31 @@ export default function CuriosityMap({ items, curiosityType }: CuriosityMapProps
               className="fixed z-50 w-72 bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl p-4"
               style={{
                 left: Math.min(popup.x + 12, window.innerWidth - 300),
-                top: Math.min(popup.y - 20, window.innerHeight - 200),
+                top: Math.min(popup.y - 20, window.innerHeight - 220),
               }}
             >
-              {/* カテゴリバッジ */}
               <div className="flex items-center gap-1.5 mb-2">
                 <span className="text-sm">{categoryChar[popup.item.category ?? 'その他'] ?? '✨'}</span>
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full"
                   style={{
                     backgroundColor: (categoryColors[popup.item.category ?? 'その他'] ?? '#4ECDC4') + '22',
                     color: categoryColors[popup.item.category ?? 'その他'] ?? '#4ECDC4',
-                  }}
-                >
+                  }}>
                   {popup.item.category ?? 'その他'}
                 </span>
               </div>
-
-              {/* 質問 */}
-              <p className="text-white text-sm font-medium leading-snug mb-2">
-                {popup.item.question}
-              </p>
-
-              {/* 要約 */}
+              <p className="text-white text-sm font-medium leading-snug mb-2">{popup.item.question}</p>
               {popup.item.summary && (
-                <p className="text-white/50 text-xs leading-relaxed mb-2">
-                  {popup.item.summary}
-                </p>
+                <p className="text-white/50 text-xs leading-relaxed mb-2">{popup.item.summary}</p>
               )}
-
-              {/* タグ */}
               {popup.item.tags && popup.item.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {popup.item.tags.map((tag) => (
-                    <span key={tag} className="text-xs text-[#4ECDC4]/70 bg-[#4ECDC4]/10 px-1.5 py-0.5 rounded-full">
-                      #{tag}
-                    </span>
+                    <span key={tag} className="text-xs text-[#4ECDC4]/70 bg-[#4ECDC4]/10 px-1.5 py-0.5 rounded-full">#{tag}</span>
                   ))}
                 </div>
               )}
-
-              {/* 閉じる */}
-              <button
-                onClick={() => setPopup(null)}
-                className="mt-3 w-full text-xs text-white/30 hover:text-white/50 transition-colors"
-              >
+              <button onClick={() => setPopup(null)} className="mt-3 w-full text-xs text-white/25 hover:text-white/50 transition-colors">
                 閉じる
               </button>
             </motion.div>
