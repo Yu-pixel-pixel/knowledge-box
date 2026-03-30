@@ -1,118 +1,192 @@
 'use client'
 
-import { useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { useMemo, useRef, useEffect } from 'react'
 import type { KnowledgeItem } from '@/lib/types'
 
 interface CuriosityMapProps {
   items: KnowledgeItem[]
 }
 
-const categoryConfig = {
-  技術: { color: '#A78BFA', bg: '#EDE9FE', char: '🤖', label: 'テクノロジー探求者' },
-  科学: { color: '#60A5FA', bg: '#DBEAFE', char: '🔬', label: 'サイエンス冒険家' },
-  歴史: { color: '#FBBF24', bg: '#FEF3C7', char: '🦉', label: 'タイムトラベラー' },
-  社会: { color: '#34D399', bg: '#D1FAE5', char: '🌍', label: 'ソーシャルアナリスト' },
-  芸術: { color: '#F472B6', bg: '#FCE7F3', char: '🎨', label: 'クリエイティブマインド' },
-  その他: { color: '#4ECDC4', bg: '#CCFBF1', char: '✨', label: 'ワンダラー' },
+const categoryColors: Record<string, string> = {
+  技術: '#A78BFA',
+  科学: '#60A5FA',
+  歴史: '#FBBF24',
+  社会: '#34D399',
+  芸術: '#F472B6',
+  その他: '#4ECDC4',
 }
 
-// バブルの固定位置（キャラの周り）
-const bubblePositions = [
-  { x: -110, y: -40 },
-  { x: 90, y: -50 },
-  { x: -120, y: 50 },
-  { x: 100, y: 40 },
-  { x: -20, y: -90 },
-  { x: 10, y: 80 },
-]
+const categoryChar: Record<string, string> = {
+  技術: '🤖',
+  科学: '🔬',
+  歴史: '🦉',
+  社会: '🌍',
+  芸術: '🎨',
+  その他: '✨',
+}
+
+interface Star {
+  x: number
+  y: number
+  r: number
+  color: string
+  alpha: number
+  twinkleOffset: number
+}
 
 export default function CuriosityMap({ items }: CuriosityMapProps) {
-  const stats = useMemo(() => {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const animRef = useRef<number>(0)
+
+  const { stars, dominant, total } = useMemo(() => {
+    if (items.length === 0) return { stars: [], dominant: 'その他', total: 0 }
+
     const counts: Record<string, number> = {}
     items.forEach((item) => {
       const cat = item.category ?? 'その他'
       counts[cat] = (counts[cat] ?? 0) + 1
     })
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])
+
+    const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'その他'
+
+    // 各アイテムを星に変換（シード固定でランダム配置）
+    const stars: Star[] = items.map((item, i) => {
+      const seed = i * 2654435761
+      const x = 0.1 + ((seed % 1000) / 1000) * 0.8
+      const y = 0.1 + (((seed >> 8) % 1000) / 1000) * 0.8
+      const cat = item.category ?? 'その他'
+      return {
+        x,
+        y,
+        r: 2 + ((seed % 3)),
+        color: categoryColors[cat] ?? '#4ECDC4',
+        alpha: 0.6 + ((seed % 40) / 100),
+        twinkleOffset: (seed % 628) / 100,
+      }
+    })
+
+    return { stars, dominant, total: items.length }
   }, [items])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const dpr = window.devicePixelRatio || 1
+    const W = canvas.offsetWidth
+    const H = canvas.offsetHeight
+    canvas.width = W * dpr
+    canvas.height = H * dpr
+    ctx.scale(dpr, dpr)
+
+    let frame = 0
+
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H)
+
+      // 背景（深宇宙）
+      const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7)
+      bg.addColorStop(0, '#1a1a2e')
+      bg.addColorStop(1, '#0d0d1a')
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, W, H)
+
+      // 星雲っぽい光
+      const nebula = ctx.createRadialGradient(W * 0.6, H * 0.3, 0, W * 0.6, H * 0.3, W * 0.4)
+      nebula.addColorStop(0, 'rgba(78, 205, 196, 0.06)')
+      nebula.addColorStop(1, 'transparent')
+      ctx.fillStyle = nebula
+      ctx.fillRect(0, 0, W, H)
+
+      // 背景の小さな固定星
+      for (let i = 0; i < 60; i++) {
+        const seed = i * 1234567
+        const bx = ((seed % 1000) / 1000) * W
+        const by = (((seed >> 4) % 1000) / 1000) * H
+        const br = 0.5 + (seed % 10) / 10
+        const twinkle = 0.3 + 0.3 * Math.sin(frame * 0.02 + i)
+        ctx.beginPath()
+        ctx.arc(bx, by, br, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(255,255,255,${twinkle})`
+        ctx.fill()
+      }
+
+      // 知識の星
+      stars.forEach((star) => {
+        const sx = star.x * W
+        const sy = star.y * H
+        const twinkle = star.alpha + 0.2 * Math.sin(frame * 0.03 + star.twinkleOffset)
+
+        // グロー
+        const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, star.r * 4)
+        glow.addColorStop(0, star.color + '88')
+        glow.addColorStop(1, 'transparent')
+        ctx.fillStyle = glow
+        ctx.beginPath()
+        ctx.arc(sx, sy, star.r * 4, 0, Math.PI * 2)
+        ctx.fill()
+
+        // 星本体
+        ctx.beginPath()
+        ctx.arc(sx, sy, star.r, 0, Math.PI * 2)
+        ctx.fillStyle = star.color + Math.round(twinkle * 255).toString(16).padStart(2, '0')
+        ctx.fill()
+      })
+
+      frame++
+      animRef.current = requestAnimationFrame(draw)
+    }
+
+    draw()
+    return () => cancelAnimationFrame(animRef.current)
+  }, [stars])
 
   if (items.length === 0) return null
 
-  const total = items.length
-  const dominant = stats[0]?.[0] ?? 'その他'
-  const config = categoryConfig[dominant as keyof typeof categoryConfig] ?? categoryConfig['その他']
-
-  const maxCount = stats[0]?.[1] ?? 1
-
   return (
-    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm px-6 py-8 overflow-hidden">
-      <p className="text-xs text-gray-400 font-medium tracking-wide uppercase mb-6 text-center">
-        あなたの好奇心マップ
-      </p>
+    <div className="rounded-3xl overflow-hidden border border-gray-800 shadow-lg relative">
+      <canvas
+        ref={canvasRef}
+        className="w-full"
+        style={{ height: 220, display: 'block' }}
+      />
 
-      {/* バブルマップ */}
-      <div className="relative flex items-center justify-center" style={{ height: 240 }}>
-        {/* 中央キャラ */}
-        <motion.div
-          animate={{ y: [0, -6, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          className="relative z-10 flex flex-col items-center"
-        >
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-md"
-            style={{ backgroundColor: config.bg }}
-          >
-            {config.char}
-          </div>
-          <p className="mt-2 text-xs font-semibold text-gray-600">{config.label}</p>
-        </motion.div>
+      {/* オーバーレイ情報 */}
+      <div className="absolute inset-0 flex flex-col justify-between p-4 pointer-events-none">
+        {/* 上部ラベル */}
+        <p className="text-xs text-white/40 font-medium tracking-widest uppercase">
+          Your Universe
+        </p>
 
-        {/* カテゴリバブル */}
-        {stats.slice(0, 6).map(([cat, count], i) => {
-          const catConfig = categoryConfig[cat as keyof typeof categoryConfig] ?? categoryConfig['その他']
-          const size = 36 + (count / maxCount) * 32
-          const pos = bubblePositions[i] ?? { x: 0, y: 0 }
-
-          return (
-            <motion.div
-              key={cat}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: i * 0.08, duration: 0.4, ease: 'easeOut' }}
-              style={{
-                position: 'absolute',
-                left: `calc(50% + ${pos.x}px)`,
-                top: `calc(50% + ${pos.y}px)`,
-                transform: 'translate(-50%, -50%)',
-                width: size,
-                height: size,
-                backgroundColor: catConfig.bg,
-                borderRadius: '50%',
-              }}
-              className="flex items-center justify-center cursor-default"
-              title={`${cat}: ${count}件`}
-            >
-              <span style={{ fontSize: size * 0.4 }}>{catConfig.char}</span>
-            </motion.div>
-          )
-        })}
-      </div>
-
-      {/* 凡例 */}
-      <div className="flex flex-wrap justify-center gap-2 mt-4">
-        {stats.map(([cat, count]) => {
-          const catConfig = categoryConfig[cat as keyof typeof categoryConfig] ?? categoryConfig['その他']
-          return (
-            <div key={cat} className="flex items-center gap-1 text-xs text-gray-500">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: catConfig.color }} />
-              {cat} {count}件
+        {/* 下部：ドミナントキャラ＋凡例 */}
+        <div className="flex items-end justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">{categoryChar[dominant] ?? '✨'}</span>
+            <div>
+              <p className="text-white text-sm font-semibold leading-none">
+                {dominant}型の好奇心
+              </p>
+              <p className="text-white/40 text-xs mt-0.5">{total}個の知識を記録中</p>
             </div>
-          )
-        })}
-      </div>
+          </div>
 
-      <p className="text-center text-xs text-gray-400 mt-3">合計 {total} 件の好奇心を記録中</p>
+          {/* カテゴリ凡例 */}
+          <div className="flex flex-col gap-1 items-end">
+            {Object.entries(categoryColors).map(([cat, color]) => {
+              const count = items.filter((i) => (i.category ?? 'その他') === cat).length
+              if (count === 0) return null
+              return (
+                <div key={cat} className="flex items-center gap-1">
+                  <span className="text-white/50 text-xs">{cat} {count}</span>
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

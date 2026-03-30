@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { KnowledgeItem } from '@/lib/types'
 
@@ -21,19 +20,13 @@ const categoryConfig: Record<string, { color: string; bg: string; label: string 
 export default function SaveResultModal({ item, onClose }: SaveResultModalProps) {
   const config = categoryConfig[item.category ?? 'その他'] ?? categoryConfig['その他']
 
-  // 2.5秒後に自動で閉じる
-  useEffect(() => {
-    const timer = setTimeout(onClose, 2500)
-    return () => clearTimeout(timer)
-  }, [onClose])
-
   return (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
         onClick={onClose}
       >
         <motion.div
@@ -63,7 +56,7 @@ export default function SaveResultModal({ item, onClose }: SaveResultModalProps)
 
           {/* タグ */}
           {item.tags && item.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mb-6">
               {item.tags.map((tag) => (
                 <span key={tag} className="text-xs bg-[#4ECDC4]/10 text-[#2ba89e] px-2 py-0.5 rounded-full">
                   #{tag}
@@ -72,17 +65,13 @@ export default function SaveResultModal({ item, onClose }: SaveResultModalProps)
             </div>
           )}
 
-          {/* プログレスバー（自動クローズ） */}
-          <motion.div
-            className="mt-5 h-0.5 bg-gray-100 rounded-full overflow-hidden"
+          {/* 閉じるボタン */}
+          <button
+            onClick={onClose}
+            className="w-full py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 text-sm font-medium rounded-2xl transition-colors"
           >
-            <motion.div
-              className="h-full bg-[#4ECDC4] rounded-full"
-              initial={{ width: '100%' }}
-              animate={{ width: '0%' }}
-              transition={{ duration: 2.5, ease: 'linear' }}
-            />
-          </motion.div>
+            閉じる
+          </button>
         </motion.div>
       </motion.div>
     </AnimatePresence>
