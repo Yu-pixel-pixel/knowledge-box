@@ -9,6 +9,7 @@ import SaveResultModal from '@/components/SaveResultModal'
 import CuriosityMap from '@/components/CuriosityMap'
 import AuthButton from '@/components/AuthButton'
 import Counter from '@/components/Counter'
+import LandingPage from '@/components/LandingPage'
 import type { KnowledgeItem, AnalysisResult } from '@/lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -99,6 +100,10 @@ export default function HomeClient({
     setTotal((prev) => prev - 1)
   }, [])
 
+  if (!isLoggedIn) {
+    return <LandingPage onLogin={handleLoginRequest} />
+  }
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col">
       {/* ヘッダー */}
@@ -106,40 +111,36 @@ export default function HomeClient({
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-gray-800">Stockle</h1>
-            {isLoggedIn && (
-              <Counter todayCount={todayCount} total={total} />
-            )}
+            <Counter todayCount={todayCount} total={total} />
           </div>
           <AuthButton isLoggedIn={isLoggedIn} />
         </div>
 
         {/* タブ */}
-        {isLoggedIn && (
-          <div className="max-w-2xl mx-auto px-4 flex gap-1 pb-0">
-            {(['memo', 'universe'] as Tab[]).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
-                  activeTab === tab ? 'text-[#4ECDC4]' : 'text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {tab === 'memo' ? 'ギモンメモ' : 'Universe'}
-                {activeTab === tab && (
-                  <motion.div
-                    layoutId="tab-indicator"
-                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4ECDC4] rounded-full"
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="max-w-2xl mx-auto px-4 flex gap-1 pb-0">
+          {(['memo', 'universe'] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`relative px-4 py-2.5 text-sm font-medium transition-colors ${
+                activeTab === tab ? 'text-[#4ECDC4]' : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {tab === 'memo' ? 'ギモンメモ' : 'Universe'}
+              {activeTab === tab && (
+                <motion.div
+                  layoutId="tab-indicator"
+                  className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4ECDC4] rounded-full"
+                />
+              )}
+            </button>
+          ))}
+        </div>
       </header>
 
       {/* タブコンテンツ */}
       <AnimatePresence mode="wait">
-        {activeTab === 'memo' || !isLoggedIn ? (
+        {activeTab === 'memo' ? (
           <motion.main
             key="memo"
             initial={{ opacity: 0, x: -16 }}
@@ -150,11 +151,6 @@ export default function HomeClient({
           >
             {/* 入力エリア */}
             <section>
-              {!isLoggedIn && (
-                <p className="text-center text-sm text-gray-500 mb-3">
-                  Googleログインで保存・履歴閲覧ができます
-                </p>
-              )}
               <KnowledgeInput
                 onSubmit={handleSubmit}
                 isLoading={isLoading}
@@ -177,12 +173,12 @@ export default function HomeClient({
                   />
                 ))}
               </section>
-            ) : isLoggedIn ? (
+            ) : (
               <div className="text-center py-16 text-gray-400">
                 <p className="text-4xl mb-3">🔭</p>
                 <p className="text-sm">気になったことを記録してみよう</p>
               </div>
-            ) : null}
+            )}
           </motion.main>
         ) : (
           <motion.div
