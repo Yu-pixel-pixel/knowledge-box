@@ -1,24 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface KnowledgeInputProps {
   onSubmit: (question: string) => Promise<void>
   isLoading: boolean
   isLoggedIn: boolean
   onLoginRequest: () => void
+  prefill?: string
 }
 
-const EXAMPLES = [
-  'なぜ夢って覚えてないんだろう',
-  'お金ってそもそも何でできてるの？',
-  'なぜ人は音楽で感動するんだろう',
-  'AIって本当に考えてるの？',
-  'なぜ空は青いの？',
-]
-
-export default function KnowledgeInput({ onSubmit, isLoading, isLoggedIn, onLoginRequest }: KnowledgeInputProps) {
+export default function KnowledgeInput({ onSubmit, isLoading, isLoggedIn, onLoginRequest, prefill }: KnowledgeInputProps) {
   const [value, setValue] = useState('')
+
+  useEffect(() => {
+    if (prefill) setValue(prefill)
+  }, [prefill])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,8 +30,6 @@ export default function KnowledgeInput({ onSubmit, isLoading, isLoggedIn, onLogi
     setValue('')
   }
 
-  const randomExample = EXAMPLES[Math.floor(Math.random() * EXAMPLES.length)]
-
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="relative">
@@ -47,7 +42,7 @@ export default function KnowledgeInput({ onSubmit, isLoading, isLoggedIn, onLogi
               handleSubmit(e)
             }
           }}
-          placeholder={`例：${randomExample}`}
+          placeholder="例：なぜ夢って覚えてないんだろう"
           rows={3}
           disabled={isLoading}
           className="w-full resize-none rounded-2xl border border-gray-200 bg-white px-5 py-4 text-gray-800 placeholder-gray-300 shadow-sm focus:border-[#4ECDC4] focus:outline-none focus:ring-2 focus:ring-[#4ECDC4]/20 disabled:opacity-60 transition-all text-base"

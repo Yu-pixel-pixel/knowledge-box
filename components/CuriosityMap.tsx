@@ -304,8 +304,33 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
   }, [])
 
   if (items.length === 0) return (
-    <div className="flex-1 flex items-center justify-center bg-[#0a0a14]">
-      <p className="text-white/30 text-sm">ギモンを記録すると、あなたの宇宙が広がります</p>
+    <div className="flex-1 flex flex-col items-center justify-center bg-[#0a0a14] px-8 text-center gap-5">
+      {/* ゴースト星空 */}
+      <div className="relative w-48 h-48">
+        {Array.from({ length: 12 }).map((_, i) => {
+          const seed = i * 9999
+          return (
+            <div
+              key={i}
+              className="absolute rounded-full bg-white/10 animate-pulse"
+              style={{
+                width: 4 + (seed % 6),
+                height: 4 + (seed % 6),
+                left: `${(seed % 100)}%`,
+                top: `${((seed * 3) % 100)}%`,
+                animationDelay: `${(i * 0.3) % 2}s`,
+              }}
+            />
+          )
+        })}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-white/20 text-4xl">🌌</p>
+        </div>
+      </div>
+      <div>
+        <p className="text-white/60 font-medium mb-2">あなたの宇宙はまだ眠っています</p>
+        <p className="text-white/25 text-sm leading-relaxed">ギモンメモタブから最初のギモンを記録すると<br />ここに星が生まれます</p>
+      </div>
     </div>
   )
 
@@ -390,8 +415,21 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
             )}
           </section>
         ) : items.length < 5 ? (
-          <section className="bg-white/5 rounded-2xl p-4 text-center">
-            <p className="text-white/30 text-sm">あと{5 - items.length}個記録すると、あなたの傾向が見えてきます</p>
+          <section className="bg-white/5 rounded-2xl p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(items.length / 5) * 100}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="h-full bg-[#4ECDC4]/60 rounded-full"
+                />
+              </div>
+              <span className="text-white/30 text-xs shrink-0">{items.length} / 5</span>
+            </div>
+            <p className="text-white/40 text-sm">
+              あと<span className="text-[#4ECDC4]/70 font-bold">{5 - items.length}個</span>記録すると、あなたの傾向が見えてきます
+            </p>
           </section>
         ) : null}
 

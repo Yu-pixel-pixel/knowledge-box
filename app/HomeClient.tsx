@@ -44,6 +44,7 @@ export default function HomeClient({
   const [latestAnalysis, setLatestAnalysis] = useState<AnalysisResult | null | undefined>(initialLatestAnalysis)
   const [activeTab, setActiveTab] = useState<Tab>('memo')
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [prefill, setPrefill] = useState<string | undefined>()
 
   const supabase = createClient()
 
@@ -158,14 +159,44 @@ export default function HomeClient({
                 isLoading={isLoading}
                 isLoggedIn={isLoggedIn}
                 onLoginRequest={handleLoginRequest}
+                prefill={prefill}
               />
               {error && (
                 <p className="mt-2 text-sm text-amber-600 bg-amber-50 rounded-xl px-4 py-2">{error}</p>
               )}
             </section>
 
+            {/* オンボーディング（0件のとき） */}
+            {items.length === 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-gradient-to-br from-[#4ECDC4]/8 to-[#4ECDC4]/3 rounded-2xl p-5 border border-[#4ECDC4]/15"
+              >
+                <p className="text-sm font-medium text-gray-700 mb-1">最初のギモンを入れてみよう 🔭</p>
+                <p className="text-xs text-gray-400 mb-4">どんな小さなことでもOK。下のヒントをタップするとそのまま入力できます。</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'なぜ夢って覚えてないんだろう',
+                    'お金ってそもそも何でできてるの？',
+                    'なぜ人は音楽で感動するの？',
+                    'AIって本当に考えてるの？',
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => setPrefill(q)}
+                      className="text-xs bg-white border border-gray-200 text-gray-600 hover:border-[#4ECDC4] hover:text-[#2ba89e] px-3 py-1.5 rounded-full transition-colors text-left"
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </motion.section>
+            )}
+
             {/* カード一覧 */}
-            {items.length > 0 ? (
+            {items.length > 0 && (
               <section className="space-y-3">
                 {items.map((item) => (
                   <KnowledgeCard
@@ -175,11 +206,6 @@ export default function HomeClient({
                   />
                 ))}
               </section>
-            ) : (
-              <div className="text-center py-16 text-gray-400">
-                <p className="text-4xl mb-3">🔭</p>
-                <p className="text-sm">気になったことを記録してみよう</p>
-              </div>
             )}
           </motion.main>
         ) : (
