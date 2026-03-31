@@ -3,6 +3,7 @@
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { KnowledgeItem, AnalysisResult } from '@/lib/types'
+import ShareCardModal from '@/components/ShareCardModal'
 
 interface CuriosityMapProps {
   items: KnowledgeItem[]
@@ -154,6 +155,7 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
   const animRef = useRef<number>(0)
   const starsRef = useRef<StarData[]>([])
   const [popup, setPopup] = useState<PopupState | null>(null)
+  const [showShareCard, setShowShareCard] = useState(false)
 
   const { stars, dominant, total, categoryStats } = useMemo(() => {
     if (items.length === 0) return { stars: [], dominant: 'その他', total: 0, categoryStats: [] }
@@ -361,7 +363,15 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
             <span className="text-2xl">{categoryChar[dominant] ?? '✨'}</span>
             <p className="text-white font-semibold text-base">{displayType}</p>
           </div>
-          <p className="text-white/30 text-xs">これまでに{total}個のギモンを記録してる</p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-white/30 text-xs">これまでに{total}個のギモンを記録してる</p>
+            <button
+              onClick={() => setShowShareCard(true)}
+              className="text-xs text-[#4ECDC4]/60 hover:text-[#4ECDC4] transition-colors px-3 py-1 rounded-full border border-[#4ECDC4]/20 hover:border-[#4ECDC4]/40"
+            >
+              📤 シェア
+            </button>
+          </div>
         </section>
 
         {/* AIメッセージ */}
@@ -386,6 +396,17 @@ export default function CuriosityMap({ items, curiosityType, latestAnalysis }: C
         ) : null}
 
       </div>
+
+      {/* シェアカードモーダル */}
+      {showShareCard && (
+        <ShareCardModal
+          curiosityType={displayType}
+          latestAnalysis={latestAnalysis}
+          total={total}
+          categoryStats={categoryStats}
+          onClose={() => setShowShareCard(false)}
+        />
+      )}
 
       {/* 星タップポップアップ */}
       <AnimatePresence>
