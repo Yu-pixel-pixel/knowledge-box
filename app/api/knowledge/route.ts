@@ -160,7 +160,43 @@ ${allItems.map((r) => `- [${r.category}] ${r.question}`).join('\n')}
     }
   }
 
-  return NextResponse.json({ item: newItem, analysis, total, curiosityType })
+  // ── Step 4: ギモンのつながり検出（3件以上のとき） ──
+  let connection: { relatedQuestion: string; reason: string } | null = null
+  const pastItems = allItems?.filter((r) => r.question !== question).slice(0, 15)
+
+  if (pastItems && pastItems.length >= 2) {
+    try {
+      const connectionRes = await anthropic.messages.create({
+        model: 'claude-haiku-4-5',
+        max_tokens: 150,
+        messages: [{
+          role: 'user',
+          content: `新しいギモン:「${question}」
+
+過去のギモン一覧:
+${pastItems.map((r, i) => `${i + 1}. ${r.question}`).join('\n')}
+
+この新しいギモンと強く関連する過去のギモンが1つだけあれば、JSON形式で返してください。
+関連が薄い場合は { "related": null } と返してください。
+
+出力形式:
+{ "related": "関連する過去のギモン（原文そのまま）", "reason": "なぜつながるか一言（20字以内）" }`,
+        }],
+      })
+      const raw = connectionRes.content[0].type === 'text' ? connectionRes.content[0].text : ''
+      const jsonMatch = raw.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0])
+        if (parsed.related) {
+          connection = { relatedQuestion: parsed.related, reason: parsed.reason }
+        }
+      }
+    } catch (e) {
+      console.error('Claude connection error:', e)
+    }
+  }
+
+  return NextResponse.json({ item: newItem, analysis, total, curiosityType, connection })
 }
 
 export async function GET() {

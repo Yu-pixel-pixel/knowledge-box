@@ -11,6 +11,7 @@ import AuthButton from '@/components/AuthButton'
 import Counter from '@/components/Counter'
 import LandingPage from '@/components/LandingPage'
 import UpgradeModal from '@/components/UpgradeModal'
+import ConnectionToast from '@/components/ConnectionToast'
 import type { KnowledgeItem, AnalysisResult } from '@/lib/types'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -48,6 +49,7 @@ export default function HomeClient({
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [prefill, setPrefill] = useState<string | undefined>()
   const [streak, setStreak] = useState(initialStreak)
+  const [connection, setConnection] = useState<{ relatedQuestion: string; reason: string } | null>(null)
 
   const supabase = createClient()
 
@@ -96,6 +98,10 @@ export default function HomeClient({
       if (data.analysis) {
         setAnalysis({ result: data.analysis, count: data.total })
         setLatestAnalysis(data.analysis)
+      }
+
+      if (data.connection) {
+        setConnection(data.connection)
       }
     } catch {
       setError('うまくいかなかったみたい。ネットワークを確認してください。')
@@ -248,6 +254,15 @@ export default function HomeClient({
       {/* アップグレードモーダル */}
       {showUpgrade && (
         <UpgradeModal onClose={() => setShowUpgrade(false)} />
+      )}
+
+      {/* つながり通知 */}
+      {connection && (
+        <ConnectionToast
+          relatedQuestion={connection.relatedQuestion}
+          reason={connection.reason}
+          onClose={() => setConnection(null)}
+        />
       )}
     </div>
   )
