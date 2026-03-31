@@ -21,6 +21,7 @@ interface HomeClientProps {
   initialTodayCount: number
   initialCuriosityType?: string
   initialLatestAnalysis?: AnalysisResult | null
+  initialStreak: number
 }
 
 type Tab = 'memo' | 'universe'
@@ -32,6 +33,7 @@ export default function HomeClient({
   initialTodayCount,
   initialCuriosityType,
   initialLatestAnalysis,
+  initialStreak,
 }: HomeClientProps) {
   const [items, setItems] = useState<KnowledgeItem[]>(initialItems)
   const [total, setTotal] = useState(initialTotal)
@@ -45,6 +47,7 @@ export default function HomeClient({
   const [activeTab, setActiveTab] = useState<Tab>('memo')
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [prefill, setPrefill] = useState<string | undefined>()
+  const [streak, setStreak] = useState(initialStreak)
 
   const supabase = createClient()
 
@@ -80,7 +83,10 @@ export default function HomeClient({
       const newItem = data.item as KnowledgeItem
       setItems((prev) => [newItem, ...prev])
       setTotal(data.total)
-      setTodayCount((prev) => prev + 1)
+      setTodayCount((prev) => {
+        if (prev === 0) setStreak((s) => s === 0 ? 1 : s)
+        return prev + 1
+      })
       setSavedItem(newItem)
 
       if (data.curiosityType) {
@@ -114,7 +120,7 @@ export default function HomeClient({
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-gray-800">Stockle</h1>
-            <Counter todayCount={todayCount} total={total} />
+            <Counter todayCount={todayCount} total={total} streak={streak} />
           </div>
           <AuthButton isLoggedIn={isLoggedIn} />
         </div>
